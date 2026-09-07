@@ -1,0 +1,124 @@
+# Dockerfile Security Rules Definition
+rules:
+  - id: D001
+    title: Explicit Root User Configured
+    severity: HIGH
+    confidence: HIGH
+    category: ACCESS_CONTROL
+    description: Dockerfile explicitly sets USER to root or UID 0.
+    risk: Running container processes as root provides excessive privileges inside the container and increases breakout impact.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.1
+    remediation: Explicitly define a dedicated non-root user (e.g. USER appuser or USER 10001).
+    secure_example: |
+      RUN groupadd -r appuser && useradd -r -g appuser -u 10001 appuser
+      USER appuser
+
+  - id: D002
+    title: Base Image Uses 'latest' Tag
+    severity: MEDIUM
+    confidence: HIGH
+    category: IMAGE_INTEGRITY
+    description: FROM instruction specifies 'latest' tag or omits a version tag.
+    risk: 'latest' tag introduces unpredictable breaking changes and vulnerabilities over time.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.3
+    remediation: Pin base image to a specific version or immutable digest.
+    secure_example: |
+      FROM python:3.12.3-slim-bookworm
+
+  - id: D003
+    title: Missing Non-Root USER Instruction
+    severity: HIGH
+    confidence: HIGH
+    category: ACCESS_CONTROL
+    description: Dockerfile does not establish a non-root USER execution context.
+    risk: Container defaults to executing commands and runtime processes as root (UID 0).
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.1
+    remediation: Create a dedicated system user and switch to it using the USER instruction.
+    secure_example: |
+      RUN useradd -u 10001 -r -s /bin/false appuser
+      USER appuser
+
+  - id: D004
+    title: Secrets Embedded in Dockerfile
+    severity: CRITICAL
+    confidence: MEDIUM
+    category: SECRETS
+    description: Hardcoded passwords, tokens, API keys, or private keys detected in instructions.
+    risk: Secrets embedded in Dockerfile remain permanently recorded in image layer metadata.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.4
+    remediation: Use Docker build secrets (--mount=type=secret) or runtime secret injection.
+    secure_example: |
+      # Use secret mounts or runtime environment variables
+      RUN --mount=type=secret,id=mysecret cat /run/secrets/mysecret
+
+  - id: D005
+    title: SSH Server Installed in Container
+    severity: MEDIUM
+    confidence: HIGH
+    category: ATTACK_SURFACE
+    description: Openssh-server or SSH daemon packages detected in RUN instructions.
+    risk: Running SSH inside containers unnecessarily expands the attack surface and leads to poor credential management.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.5
+    remediation: Remove SSH server installation and use container orchestration exec tools.
+    secure_example: |
+      # Do not install openssh-server in RUN commands.
+
+  - id: D006
+    title: Dangerous System Modification
+    severity: HIGH
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Dangerous operations detected such as chmod 777 on sensitive paths, editing /etc/shadow, or unrestricted privilege alteration.
+    risk: Insecure permissions allow unprivileged processes or attackers to manipulate system files or elevate privileges.
+    cis_reference: Best Practice — CIS mapping requires verification
+    remediation: Grant minimal required permissions (e.g. 750 or 640) on application directories only.
+    secure_example: |
+      RUN chown -R appuser:appgroup /app && chmod 750 /app
+
+  - id: D007
+    title: ADD Instruction Used Instead of COPY
+    severity: LOW
+    confidence: HIGH
+    category: BEST_PRACTICE
+    description: ADD instruction used for local file copying.
+    risk: ADD has extra functionality (tar extraction, remote URL download) that can cause unexpected behavior or vulnerabilities.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.9
+    remediation: Use COPY for copying local files and directories.
+    secure_example: |
+      COPY package.json ./
+
+  - id: D008
+    title: Unsafe Package Installation Practice
+    severity: LOW
+    confidence: HIGH
+    category: BEST_PRACTICE
+    description: Package installation includes unsafe flags (--allow-unauthenticated) or unverified script piping (curl | bash).
+    risk: Executing unverified remote scripts or ignoring package signatures bypasses integrity verification.
+    cis_reference: Best Practice — CIS mapping requires verification
+    remediation: Verify checksums, validate signatures, and use standard package repositories.
+    secure_example: |
+      RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
+
+  - id: D009
+    title: Missing HEALTHCHECK Instruction
+    severity: LOW
+    confidence: HIGH
+    category: HARDENING
+    description: No HEALTHCHECK instruction defined in Dockerfile.
+    risk: Orchestrator or container runtime cannot determine container health and automatically restart stalled instances.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.6
+    remediation: Add a HEALTHCHECK instruction specifying command, interval, and timeout.
+    secure_example: |
+      HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/health || exit 1
+
+  - id: D010
+    title: Unpinned Base Image Floating Tag
+    severity: MEDIUM
+    confidence: HIGH
+    category: IMAGE_INTEGRITY
+    description: Base image uses generic or floating tags (e.g. alpine, ubuntu, debian) without a specific minor/patch version.
+    risk: Floating tags change unpredictably across builds, resulting in unreproducible artifacts and unexpected vulnerabilities.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.3
+    remediation: Specify a full version tag or digest.
+    secure_example: |
+      FROM alpine:3.19.1

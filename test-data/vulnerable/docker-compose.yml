@@ -1,0 +1,25 @@
+# Intentionally Vulnerable Docker Compose for Security Auditing Demonstration
+# WARNING: FOR LOCAL SECURITY TESTING ONLY - DO NOT USE IN PRODUCTION
+
+version: '3.8'
+
+services:
+  web-app:
+    image: nginx:latest
+    privileged: true
+    network_mode: host
+    pid: host
+    ipc: host
+    volumes:
+      - /:/host-root
+      - /var/run/docker.sock:/var/run/docker.sock
+    cap_add:
+      - ALL
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - DB_SECRET_KEY=DEMO_NOT_A_REAL_SECRET_KEY_12345
+      - ADMIN_PASSWORD=super_insecure_admin_pass
+    ports:
+      - "5432:5432"
+      - "22:22"

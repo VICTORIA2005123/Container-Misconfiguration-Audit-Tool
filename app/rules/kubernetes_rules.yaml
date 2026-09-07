@@ -1,0 +1,218 @@
+# Kubernetes Security Rules Definition
+rules:
+  - id: K001
+    title: Privileged Container Enabled
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Container securityContext sets 'privileged: true'.
+    risk: Privileged containers disable all kernel isolation barriers and allow host takeover.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.1
+    remediation: Set 'securityContext.privileged: false'.
+    secure_example: |
+      securityContext:
+        privileged: false
+
+  - id: K002
+    title: runAsNonRoot Not Enabled or Explicit Root User
+    severity: HIGH
+    confidence: HIGH
+    category: ACCESS_CONTROL
+    description: runAsNonRoot is not true, or runAsUser is explicitly set to 0.
+    risk: Container processes may run with root UID inside the container.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.6
+    remediation: Set 'securityContext.runAsNonRoot: true' and define a non-zero 'runAsUser'.
+    secure_example: |
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+
+  - id: K003
+    title: allowPrivilegeEscalation Enabled or Not Disabled
+    severity: HIGH
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Container sets allowPrivilegeEscalation: true or fails to explicitly set it to false.
+    risk: Child processes may obtain higher privileges than their parent process via setuid binaries.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.5
+    remediation: Explicitly set 'allowPrivilegeEscalation: false'.
+    secure_example: |
+      securityContext:
+        allowPrivilegeEscalation: false
+
+  - id: K004
+    title: hostNetwork Enabled
+    severity: HIGH
+    confidence: HIGH
+    category: NETWORK_SECURITY
+    description: Pod specification sets 'hostNetwork: true'.
+    risk: Pod shares host network namespace, snooping on network traffic and bypassing network policies.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.4
+    remediation: Remove 'hostNetwork: true' or set to false.
+    secure_example: |
+      spec:
+        hostNetwork: false
+
+  - id: K005
+    title: hostPID Enabled
+    severity: HIGH
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Pod specification sets 'hostPID: true'.
+    risk: Container processes can see all processes on the host node.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.3
+    remediation: Remove 'hostPID: true' or set to false.
+    secure_example: |
+      spec:
+        hostPID: false
+
+  - id: K006
+    title: hostIPC Enabled
+    severity: HIGH
+    confidence: HIGH
+    category: ACCESS_CONTROL
+    description: Pod specification sets 'hostIPC: true'.
+    risk: Container can access host shared memory mechanisms.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.2
+    remediation: Remove 'hostIPC: true' or set to false.
+    secure_example: |
+      spec:
+        hostIPC: false
+
+  - id: K007
+    title: Dangerous hostPath Volume Mount
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Pod uses hostPath volume mounted to root (/), /etc, /var/run, /proc, /sys.
+    risk: Exposes host node filesystem directly to pod, facilitating container breakout.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.8
+    remediation: Use PersistentVolumeClaims or emptyDir instead of hostPath.
+    secure_example: |
+      volumes:
+        - name: data
+          emptyDir: {}
+
+  - id: K008
+    title: Container Image Uses 'latest' Tag
+    severity: MEDIUM
+    confidence: HIGH
+    category: IMAGE_INTEGRITY
+    description: Container image tag is ':latest' or missing.
+    risk: Causes non-deterministic deployments and difficulty auditing running software.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.7.4
+    remediation: Specify immutable version tag or image SHA digest.
+    secure_example: |
+      image: nginx:1.25.5-alpine
+
+  - id: K009
+    title: Excessive Added Capabilities (ALL)
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Container securityContext capabilities.add contains 'ALL'.
+    risk: Grants full kernel capability set, negating container boundary protections.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.7
+    remediation: Drop ALL capabilities and add only minimum required capabilities.
+    secure_example: |
+      securityContext:
+        capabilities:
+          drop:
+            - ALL
+
+  - id: K010
+    title: Unnecessary Dangerous Capabilities Added
+    severity: HIGH
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Capabilities include dangerous privileges (SYS_ADMIN, NET_ADMIN, SYS_PTRACE, DAC_OVERRIDE, SYS_RAWIO).
+    risk: Dangerous capabilities allow raw network manipulation, device control, or kernel tracing.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.7
+    remediation: Remove dangerous capabilities from securityContext.capabilities.add.
+    secure_example: |
+      securityContext:
+        capabilities:
+          drop:
+            - ALL
+          add:
+            - NET_BIND_SERVICE
+
+  - id: K011
+    title: readOnlyRootFilesystem Disabled or Not Enabled
+    severity: MEDIUM
+    confidence: HIGH
+    category: HARDENING
+    description: Container securityContext lacks 'readOnlyRootFilesystem: true' or explicitly sets it to false.
+    risk: Writable root filesystem allows attackers to store malware binaries and modify configuration.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.2.9
+    remediation: Set 'securityContext.readOnlyRootFilesystem: true' and use emptyDir for writable folders.
+    secure_example: |
+      securityContext:
+        readOnlyRootFilesystem: true
+
+  - id: K012
+    title: Missing Resource Requests and Limits
+    severity: MEDIUM
+    confidence: HIGH
+    category: HARDENING
+    description: Container resources lack requests and limits for CPU and Memory.
+    risk: Potential resource starvation and Denial of Service for adjacent pods.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.7.1
+    remediation: Define both requests and limits for CPU and memory.
+    secure_example: |
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+  - id: K013
+    title: Missing Seccomp Profile
+    severity: MEDIUM
+    confidence: HIGH
+    category: HARDENING
+    description: Pod or container securityContext does not specify RuntimeDefault seccomp profile.
+    risk: Allows execution of unnecessary system calls.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.7.2
+    remediation: Configure 'seccompProfile.type: RuntimeDefault' in securityContext.
+    secure_example: |
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+  - id: K014
+    title: Container securityContext Missing
+    severity: MEDIUM
+    confidence: HIGH
+    category: HARDENING
+    description: Container does not have a securityContext defined.
+    risk: Defaults to permissive runtime settings.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.7.3
+    remediation: Add a hardened securityContext to the container definition.
+    secure_example: |
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+
+  - id: K015
+    title: Secrets Embedded Directly in Manifest
+    severity: CRITICAL
+    confidence: MEDIUM
+    category: SECRETS
+    description: Hardcoded passwords, tokens, or private keys detected in environment variables.
+    risk: Storing secrets in plain manifests exposes credentials in git repositories and audit logs.
+    cis_reference: CIS Kubernetes Benchmark v1.8.0 — Control 5.4.1
+    remediation: Reference Kubernetes Secrets via secretKeyRef or secret volumes.
+    secure_example: |
+      env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: password

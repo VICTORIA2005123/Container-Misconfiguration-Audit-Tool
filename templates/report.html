@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Container Misconfiguration Audit Report</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-card: #334155;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #475569;
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #3b82f6;
+            --info: #64748b;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .header-title p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .score-box {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: var(--surface);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .score-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            border: 4px solid {% if result.score >= 80 %}var(--success){% elif result.score >= 50 %}var(--medium){% else %}var(--critical){% endif %};
+            color: {% if result.score >= 80 %}var(--success){% elif result.score >= 50 %}var(--medium){% else %}var(--critical){% endif %};
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            padding: 1.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .summary-card .count {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        .card-critical .count { color: var(--critical); }
+        .card-high .count { color: var(--high); }
+        .card-medium .count { color: var(--medium); }
+        .card-low .count { color: var(--low); }
+        .card-total .count { color: var(--text); }
+
+        .meta-section {
+            background: var(--surface);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .meta-item strong {
+            color: var(--text-muted);
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .finding-card {
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+        }
+
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .finding-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-critical { background: var(--critical); color: white; }
+        .badge-high { background: var(--high); color: white; }
+        .badge-medium { background: var(--medium); color: black; }
+        .badge-low { background: var(--low); color: white; }
+        .badge-info { background: var(--info); color: white; }
+
+        .finding-body {
+            padding: 1.25rem;
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .finding-detail {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            font-size: 0.9rem;
+        }
+
+        .finding-detail .label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        pre {
+            background: #090d16;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            border: 1px solid #1e293b;
+            margin-top: 0.25rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+            color: var(--success);
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>Container Misconfiguration Audit Report</h1>
+                <p>Target: <code>{{ result.target }}</code> &bull; Generated: {{ result.timestamp }}</p>
+            </div>
+            <div class="score-box">
+                <div>
+                    <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Security Score</div>
+                    <div style="font-size:1.1rem; font-weight:700;">{{ result.score }}/100</div>
+                </div>
+                <div class="score-circle">{{ result.score }}</div>
+            </div>
+        </header>
+
+        <div class="summary-grid">
+            <div class="summary-card card-critical">
+                <div style="color:var(--text-muted); font-size:0.8rem; font-weight:600;">CRITICAL</div>
+                <div class="count">{{ result.summary.critical }}</div>
+            </div>
+            <div class="summary-card card-high">
+                <div style="color:var(--text-muted); font-size:0.8rem; font-weight:600;">HIGH</div>
+                <div class="count">{{ result.summary.high }}</div>
+            </div>
+            <div class="summary-card card-medium">
+                <div style="color:var(--text-muted); font-size:0.8rem; font-weight:600;">MEDIUM</div>
+                <div class="count">{{ result.summary.medium }}</div>
+            </div>
+            <div class="summary-card card-low">
+                <div style="color:var(--text-muted); font-size:0.8rem; font-weight:600;">LOW</div>
+                <div class="count">{{ result.summary.low }}</div>
+            </div>
+            <div class="summary-card card-total">
+                <div style="color:var(--text-muted); font-size:0.8rem; font-weight:600;">TOTAL FINDINGS</div>
+                <div class="count">{{ result.summary.total }}</div>
+            </div>
+        </div>
+
+        <div class="meta-section">
+            <div class="meta-item">
+                <strong>Files Scanned</strong>
+                {{ result.summary.files_scanned }}
+            </div>
+            <div class="meta-item">
+                <strong>Scan Status</strong>
+                <span style="color:{% if result.summary.passed %}var(--success){% else %}var(--critical){% endif %}; font-weight:bold;">
+                    {% if result.summary.passed %}PASSED{% else %}FAIL{% endif %}
+                </span>
+            </div>
+            <div class="meta-item">
+                <strong>Engine Version</strong>
+                {{ result.version }}
+            </div>
+        </div>
+
+        <h2 style="margin-bottom: 1rem; font-size: 1.3rem;">Detailed Security Findings</h2>
+
+        {% if result.findings %}
+            {% for finding in result.findings %}
+            <div class="finding-card">
+                <div class="finding-header">
+                    <div class="finding-title">
+                        <span class="badge badge-{{ finding.severity.value|lower }}">{{ finding.severity.value }}</span>
+                        <span>[{{ finding.id }}] {{ finding.title }}</span>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">
+                        Confidence: <strong>{{ finding.confidence.value }}</strong>
+                    </div>
+                </div>
+                <div class="finding-body">
+                    <div class="finding-detail">
+                        <span class="label">Location:</span>
+                        <span><code>{{ finding.file }}{% if finding.line %}:{{ finding.line }}{% endif %}</code> {% if finding.resource %}(Resource: {{ finding.resource }}){% endif %}</span>
+                    </div>
+                    <div class="finding-detail">
+                        <span class="label">Description:</span>
+                        <span>{{ finding.description }}</span>
+                    </div>
+                    <div class="finding-detail">
+                        <span class="label">Security Risk:</span>
+                        <span>{{ finding.risk }}</span>
+                    </div>
+                    {% if finding.cis_reference %}
+                    <div class="finding-detail">
+                        <span class="label">Standard / CIS:</span>
+                        <span style="color:#a5b4fc;">{{ finding.cis_reference }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="finding-detail">
+                        <span class="label">Remediation:</span>
+                        <span>{{ finding.remediation }}</span>
+                    </div>
+                    {% if finding.secure_example %}
+                    <div class="finding-detail">
+                        <span class="label">Secure Example:</span>
+                        <pre><code>{{ finding.secure_example }}</code></pre>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No Misconfigurations Found</h3>
+                <p>All scanned container and Kubernetes resources adhere to configured security best practices.</p>
+            </div>
+        {% endif %}
+
+        <footer>
+            Container Misconfiguration Audit Tool &bull; DevSecOps & Security Hardening Framework
+        </footer>
+    </div>
+</body>
+</html>

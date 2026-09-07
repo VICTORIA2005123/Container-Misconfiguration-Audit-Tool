@@ -1,0 +1,170 @@
+# Docker Compose Security Rules Definition
+rules:
+  - id: C001
+    title: Privileged Container Enabled
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Service sets 'privileged: true'.
+    risk: Privileged mode grants full access to host kernel and hardware devices, rendering container isolation ineffective.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.4
+    remediation: Set 'privileged: false' and grant only specifically needed capabilities via cap_add.
+    secure_example: |
+      services:
+        web:
+          privileged: false
+          cap_drop:
+            - ALL
+
+  - id: C002
+    title: Host Network Mode Enabled
+    severity: HIGH
+    confidence: HIGH
+    category: NETWORK_SECURITY
+    description: Service sets 'network_mode: host'.
+    risk: The container shares the host network stack, exposing localhost services and bypassing network isolation.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.9
+    remediation: Use bridge or custom overlay network instead of host network mode.
+    secure_example: |
+      services:
+        web:
+          networks:
+            - app-net
+
+  - id: C003
+    title: Host PID Namespace Shared
+    severity: HIGH
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Service sets 'pid: host'.
+    risk: Container can view, trace, and terminate all processes running on the host system.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.15
+    remediation: Remove 'pid: host' to maintain process namespace isolation.
+    secure_example: |
+      services:
+        web:
+          # Remove pid: host
+
+  - id: C004
+    title: Host IPC Namespace Shared
+    severity: HIGH
+    confidence: HIGH
+    category: ACCESS_CONTROL
+    description: Service sets 'ipc: host'.
+    risk: Container processes can access host inter-process memory segments and synchronization primitives.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.16
+    remediation: Remove 'ipc: host' to isolate IPC resources.
+    secure_example: |
+      services:
+        web:
+          # Remove ipc: host
+
+  - id: C005
+    title: Host Root Filesystem Mounted
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Volume mount specifies host root directory ('/' or '/:/...').
+    risk: Provides container with write and execute access to the host operating system filesystem.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.5
+    remediation: Mount only dedicated application data directories.
+    secure_example: |
+      volumes:
+        - app-data:/var/app/data
+
+  - id: C006
+    title: Sensitive Host Path Mounted
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Volume mount includes sensitive host paths (/var/run/docker.sock, /etc, /root, /proc, /sys).
+    risk: Mounting Docker socket or host configuration paths allows full host takeover and container escape.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.31
+    remediation: Remove mounts for Docker socket and sensitive host directories.
+    secure_example: |
+      volumes:
+        - ./config/app.conf:/etc/myapp/app.conf:ro
+
+  - id: C007
+    title: Excessive Linux Capabilities (cap_add: ALL)
+    severity: CRITICAL
+    confidence: HIGH
+    category: PRIVILEGE_ESCALATION
+    description: Service grants ALL Linux capabilities via cap_add.
+    risk: Breaks kernel-level security boundaries and allows kernel module manipulation and device access.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.3
+    remediation: Drop ALL capabilities and selectively add only necessary privileges.
+    secure_example: |
+      cap_drop:
+        - ALL
+      cap_add:
+        - NET_BIND_SERVICE
+
+  - id: C008
+    title: AppArmor or Seccomp Disabled
+    severity: HIGH
+    confidence: HIGH
+    category: HARDENING
+    description: Service security_opt disables seccomp or apparmor (e.g. unconfined).
+    risk: Disables essential syscall filters and mandatory access controls.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.1
+    remediation: Enforce default or custom seccomp and AppArmor profiles.
+    secure_example: |
+      security_opt:
+        - no-new-privileges:true
+
+  - id: C009
+    title: Hardcoded Secret in Environment Variable
+    severity: CRITICAL
+    confidence: MEDIUM
+    category: SECRETS
+    description: Hardcoded passwords, secret keys, or API tokens in environment section.
+    risk: Plaintext secrets are visible to anyone inspecting Compose files or running containers.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.14
+    remediation: Use Docker secrets or external secret management tools.
+    secure_example: |
+      environment:
+        - DB_USER=appuser
+      secrets:
+        - db_password
+
+  - id: C010
+    title: Image Uses 'latest' Tag
+    severity: MEDIUM
+    confidence: HIGH
+    category: IMAGE_INTEGRITY
+    description: Service image uses ':latest' tag or omits a version tag.
+    risk: Unpinned images cause configuration drift and unpredictable deployments.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 4.3
+    remediation: Pin image to a specific version tag.
+    secure_example: |
+      image: redis:7.2.4-alpine
+
+  - id: C011
+    title: Missing Resource Limits
+    severity: MEDIUM
+    confidence: HIGH
+    category: HARDENING
+    description: Service has no CPU or Memory limits defined.
+    risk: Unbounded resource consumption can cause denial of service on the host node.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.10
+    remediation: Specify memory and CPU limits under deploy.resources.limits or mem_limit.
+    secure_example: |
+      deploy:
+        resources:
+          limits:
+            cpus: '0.50'
+            memory: 512M
+
+  - id: C012
+    title: Dangerous Port Exposure
+    severity: HIGH
+    confidence: HIGH
+    category: NETWORK_SECURITY
+    description: Sensitive administrative or database ports (22, 2375, 3306, 5432, 27017, 6379) bound to 0.0.0.0.
+    risk: Direct exposure of sensitive database or management interfaces to public network.
+    cis_reference: CIS Docker Benchmark v1.6.0 — Control 5.13
+    remediation: Bind ports to 127.0.0.1 or keep services on private internal networks.
+    secure_example: |
+      ports:
+        - "127.0.0.1:5432:5432"
