@@ -9,7 +9,7 @@ on:
 
 jobs:
   audit-and-test:
-    name: Run Unit Tests & Security Audit
+    name: Run Tests & Container Security Audit
     runs-on: ubuntu-latest
 
     steps:
@@ -33,16 +33,51 @@ jobs:
         with:
           version: "latest"
 
+      - name: Verify Docker and Trivy
+        run: |
+          docker --version
+          trivy --version
+
+      - name: Build Docker Image
+        run: |
+          docker build -t container-audit:ci .
+
+      - name: Scan Docker Image with Container Audit
+        run: |
+          container-audit image container-audit:ci \
+            --format terminal
+
       - name: Run Test Suite
         run: |
           pytest -v --cov=app
 
-      - name: Generate Security Audit Reports (JSON, HTML, SARIF)
+      - name: Scan Vulnerable Test Data
+        run: |
+          container-audit scan test-data/vulnerable \
+            --format terminal || true
+
+      - name: Verify Secure Test Data
+        run: |
+          container-audit scan test-data/secure \
+            --format terminal \
+            --fail-on HIGH
+
+      - name: Generate Security Audit Reports
+        if: always()
         run: |
           mkdir -p reports
-          container-audit scan . --format json --output reports/security-report.json || true
-          container-audit scan . --format html --output reports/security-report.html || true
-          container-audit scan . --format sarif --output reports/security-report.sarif || true
+
+          container-audit scan . \
+            --format json \
+            --output reports/security-report.json || true
+
+          container-audit scan . \
+            --format html \
+            --output reports/security-report.html || true
+
+          container-audit scan . \
+            --format sarif \
+            --output reports/security-report.sarif || true
 
       - name: Upload Security Reports as Artifact
         uses: actions/upload-artifact@v4
@@ -57,8 +92,3 @@ jobs:
         with:
           sarif_file: reports/security-report.sarif
           category: container-misconfiguration-audit
-
-      - name: Enforce Security Gate (Fail on HIGH or CRITICAL)
-        run: |
-          # Fails if any HIGH or CRITICAL findings exist in production configurations
-          container-audit scan test-data/secure --fail-on HIGH
